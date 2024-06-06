@@ -1,21 +1,41 @@
----
-name: Label Checker
+name: Check PR Labels
+
 on:
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
-      - labeled
-      - unlabeled
+    types: [opened, edited, labeled, unlabeled]
 
 jobs:
-
-  check_labels:
-    name: Check labels
+  check-labels:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: docker://agilepathway/pull-request-label-checker:latest
-        with:
-          one_of: major,minor,test
-          repo_token: ${{ secrets.LABEL_CHECKER_TOKEN }}
+    - name: Check out repository
+      uses: actions/checkout@v2
+
+    - name: Check PR labels
+      id: check_labels
+      run: |
+        required_labels=("frontend-binding" "backend-api" "scope" "wireframe")
+        labels=$(jq -r '.pull_request.labels[].name' "$GITHUB_EVENT_PATH")
+
+        found_label=false
+        for label in "${required_labels[@]}"; do
+          if echo "$labels" | grep -q "$label"; then
+            found_label=true
+            break
+          fi
+        done
+
+        if [ "$found_label" = false ]; then
+          echo "None of the required labels are present."
+          echo "::set-output name=labels_missing::true"
+        else
+          echo "At least one required label is present."
+          echo "::set-output name=labels_missing::false"
+        fi
+
+    - name: Fail if labels are missing
+      if: steps.check_labels.outputs.labels_missing == 'true'
+      run: |
+        echo "PR is missing required labels."
+        exit 1
