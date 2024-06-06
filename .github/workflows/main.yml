@@ -15,20 +15,22 @@ jobs:
     - name: Check PR labels
       id: check_labels
       run: |
-        required_labels=("bug" "enhancement")
+        required_labels=("frontend-binding" "backend-api" "scope" "wireframe")
         labels=$(jq -r '.pull_request.labels[].name' "$GITHUB_EVENT_PATH")
 
-        missing_labels=()
+        found_label=false
         for label in "${required_labels[@]}"; do
-          if ! echo "$labels" | grep -q "$label"; then
-            missing_labels+=("$label")
+          if echo "$labels" | grep -q "$label"; then
+            found_label=true
+            break
           fi
         done
 
-        if [ ${#missing_labels[@]} -ne 0 ]; then
-          echo "Missing required labels: ${missing_labels[@]}"
+        if [ "$found_label" = false ]; then
+          echo "None of the required labels are present."
           echo "::set-output name=labels_missing::true"
         else
+          echo "At least one required label is present."
           echo "::set-output name=labels_missing::false"
         fi
 
